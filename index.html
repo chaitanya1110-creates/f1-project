@@ -241,6 +241,8 @@
             useEffect(() => {
                 const loadCSV = async (path) => {
                     try {
+                        const freshPath = `${path}?t=${new Date().getTime()}`;
+                        const response = await fetch(freshPath);
                         const response = await fetch(path);
                         if (!response.ok) throw new Error(`File not found: ${path}`);
                         const text = await response.text();
