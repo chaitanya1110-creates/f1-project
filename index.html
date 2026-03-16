@@ -243,6 +243,17 @@
                     try {
                         const freshPath = `${path}?t=${new Date().getTime()}`;
                         const response = await fetch(freshPath);
+                        
+                        if (!response.ok) throw new Error(`File not found: ${path}`);
+                        
+                        const text = await response.text();
+                        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+                        return parsed.data;
+                            } catch (e) {
+                                console.error(`Error loading ${path}:`, e);
+                                throw e;
+                            }
+                        };
                         const response = await fetch(path);
                         if (!response.ok) throw new Error(`File not found: ${path}`);
                         const text = await response.text();
