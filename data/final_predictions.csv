@@ -1,21 +1,21 @@
 forename,surname,predicted_points_potential
-Lando,Norris,18.0
-Oscar,Piastri,16.0
-Max,Verstappen,14.0
-Charles,Leclerc,10.0
-George,Russell,10.0
-Andrea Kimi,Antonelli,10.0
-Fernando,Alonso,5.0
-Oliver,Bearman,5.0
-Carlos,Sainz,4.0
-Liam,Lawson,4.0
+Max,Verstappen,18.0
+Andrea Kimi,Antonelli,15.0
+Lando,Norris,14.0
+George,Russell,12.0
+Charles,Leclerc,8.0
+Carlos,Sainz,7.0
+Oscar,Piastri,6.0
+Oliver,Bearman,4.0
+Fernando,Alonso,3.0
+Nico,Hülkenberg,3.0
+Liam,Lawson,3.0
 Isack,Hadjar,3.0
 Lewis,Hamilton,2.0
-Sergio,Pérez,2.0
 Esteban,Ocon,2.0
-Alexander,Albon,2.0
-Yuki,Tsunoda,2.0
-Nico,Hülkenberg,1.0
+Sergio,Pérez,1.0
+Valtteri,Bottas,1.0
 Lance,Stroll,1.0
 Pierre,Gasly,1.0
+Alexander,Albon,1.0
 Gabriel,Bortoleto,1.0
