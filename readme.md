@@ -9,7 +9,6 @@ An automated end-to-end data pipeline that fetches Formula 1 driver statistics a
 ## 🛠️ Tech Stack
 * **Language:** Python (PySpark)
 * **Platform:** Azure Databricks
-* **Storage:** Azure Data Lake Storage (ADLS) / Delta Lake
 * **Automation:** GitHub Actions
 * **Frontend:** HTML/CSS (GitHub Pages)
 
