@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>icarus F1</title>
+    <!-- React & ReactDOM (UMD, via CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel standalone for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Framer Motion for Tab Transitions (UMD, via CDN) -->
+    <script src="https://unpkg.com/framer-motion@11.1.7/dist/framer-motion.js"></script>
+    <!-- PapaParse for CSV processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+        :root {
+            --bg-start: #000000;
+            --bg-end: #1a0000;
+            --crimson: #d50000;
+            --crimson-glow: rgba(213, 0, 0, 0.6);
+            --glass-bg: rgba(20, 0, 0, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(26, 0, 0, 0.9)), url('req_web/f1_bg.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Glitch Screen Shake effect */
+        .glitch-shake {
+            animation: glitch 0.5s cubic-bezier(.25, .46, .45, .94) both;
+        }
+
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+                filter: blur(0);
+            }
+
+            20% {
+                transform: translate(-8px, 4px) skew(-2deg);
+                filter: blur(3px) drop-shadow(4px 0 0 rgba(213, 0, 0, 0.5));
+            }
+
+            40% {
+                transform: translate(8px, -4px) skew(2deg);
+                filter: blur(0);
+            }
+
+            60% {
+                transform: translate(-8px, 2px);
+                filter: blur(2px) drop-shadow(-4px 0 0 rgba(0, 255, 255, 0.5));
+            }
+
+            80% {
+                transform: translate(4px, -2px);
+                filter: blur(0);
+            }
+
+            100% {
+                transform: translate(0);
+                filter: blur(0);
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* --- Liquid Glass UI Shared Effect --- */
+        .liquid-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            /* Bring contents above the ::after pseudo-element */
+        }
+
+        .liquid-glass::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 80%;
+            height: 100%;
+            background: linear-gradient(to right,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.08) 50%,
+                    rgba(255, 255, 255, 0) 100%);
+            transform: skewX(-25deg);
+            transition: left 0.7s ease;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .liquid-glass:hover::after {
+            left: 200%;
+        }
+
+        .liquid-glass>* {
+            position: relative;
+            z-index: 20;
+        }
+
+        /* --- Components --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            margin-bottom: 3rem;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--crimson);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-transform: uppercase;
+        }
+
+        .nav-logo img {
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px var(--crimson-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 20px;
+            font-family: inherit;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            color: #fff;
+            text-shadow: 0 0 10px var(--crimson-glow);
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-transform: uppercase;
+        }
+
+        /* Responsive Liquid Grid */
+        .liquid-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .liquid-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .liquid-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Interactive Cards */
+        .interactive-card {
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                box-shadow 0.4s ease,
+                border-color 0.4s ease;
+        }
+
+        .interactive-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 15px 40px -5px var(--crimson-glow);
+            border-color: rgba(213, 0, 0, 0.4);
+        }
+
+        .driver-number {
+            position: absolute;
+            top: 5px;
+            right: 15px;
+            font-size: 4rem;
+            font-weight: 900;
+            color: transparent;
+            -webkit-text-stroke: 2px rgba(255, 255, 255, 0.05);
+            z-index: -1;
+            transition: all 0.4s ease;
+            pointer-events: none;
+        }
+
+        .interactive-card:hover .driver-number {
+            -webkit-text-stroke: 2px rgba(213, 0, 0, 0.5);
+            transform: scale(1.1) translateX(-5px);
+        }
+
+        .driver-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .driver-team {
+            font-size: 0.85rem;
+            color: #aaaaaa;
+            margin: 5px 0 0 0;
+        }
+
+        .points,
+        .probability {
+            color: var(--crimson);
+            font-weight: 800;
+        }
+
+        .probability {
+            font-size: 1.2rem;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- F1 Fly-By Animation --- */
+        .f1-car-container {
+            position: fixed;
+            z-index: 1;
+            /* Behind the content container */
+            pointer-events: none;
+            /* Hidden until animation starts */
+            top: 50%;
+            left: -500px;
+            transform: translateY(-50%);
+            will-change: transform;
+        }
+
+        .motion-blur-trail {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 100px;
+            height: 10px;
+            background: transparent;
+            box-shadow:
+                -40px 0 20px 10px rgba(213, 0, 0, 0.8),
+                -80px 0 30px 15px rgba(213, 0, 0, 0.5),
+                -120px 0 50px 20px rgba(213, 0, 0, 0.2);
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        /* PC / Horizontal Animation */
+        @media (min-width: 641px) {
+            .f1-car-container.is-flying {
+                animation: flyRight 1.5s linear forwards;
+            }
+
+            @keyframes flyRight {
+                0% {
+                    transform: translateX(0) translateY(-50%);
+                }
+
+                100% {
+                    transform: translateX(calc(100vw + 600px)) translateY(-50%);
+                }
+            }
+        }
+
+        /* Mobile / Diagonal Animation */
+        @media (max-width: 640px) {
+            .f1-car-container {
+                left: -200px;
+                top: -200px;
+                transform: rotate(55deg);
+            }
+
+            .f1-car-container.is-flying {
+                animation: flyDiagonal 1.5s linear forwards;
+            }
+
+            @keyframes flyDiagonal {
+                0% {
+                    transform: translate(0, 0) rotate(55deg);
+                }
+
+                100% {
+                    transform: translate(calc(100vw + 400px), calc(100vh + 400px)) rotate(55deg);
+                }
+            }
+
+            .nav-links {
+                display: none;
+                /* simple responsive fallback for nav */
+            }
+
+            .nav-logo {
+                margin: 0 auto;
+            }
+
+            .navbar {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Safe check for Framer Motion incase CDN fails
+        const motion = window.Motion ? window.Motion.motion : null;
+        const AnimatePresence = window.Motion ? window.Motion.AnimatePresence : null;
+
+        const MotionDiv = motion ? motion.div : 'div';
+        const MotionPresence = AnimatePresence ? AnimatePresence : ({ children }) => <>{children}</>;
+
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // --- Utility to safely get property from unknown CSV header ---
+        const getVal = (obj, keysArray) => {
+            if (!obj) return '';
+            const lookupStr = typeof obj === 'object' ? Object.keys(obj) : [];
+            const foundKey = lookupStr.find(k => typeof k === 'string' && keysArray.some(key => k.toLowerCase().includes(key.toLowerCase())));
+            return foundKey !== undefined ? obj[foundKey] : '-';
+        };
+
+        const useCSVData = () => {
+            const [drivers, setDrivers] = useState([]);
+            const [predictions, setPredictions] = useState([]);
+            const [badLuckStats, setBadLuckStats] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                let loaded = 0;
+                const checkDone = () => {
+                    loaded++;
+                    if (loaded >= 3) setLoading(false);
+                };
+
+                const parseCSV = (url, setter) => {
+                    if (window.Papa) {
+                        window.Papa.parse(url, {
+                            download: true,
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: (results) => {
+                                setter(results.data);
+                                checkDone();
+                            },
+                            error: (error) => {
+                                console.error(`Error parsing ${url}:`, error);
+                                // allow progress anyway so app isn't stuck forever
+                                setter([]);
+                                checkDone();
+                            }
+                        });
+                    } else {
+                        console.error('PapaParse is not loaded.');
+                        checkDone();
+                    }
+                };
+
+                parseCSV('./data/top_drivers_all_time.csv', setDrivers);
+                parseCSV('./data/final_predictions.csv', setPredictions);
+                parseCSV('./data/driver_bad_luck_stats.csv', setBadLuckStats);
+            }, []);
+
+            return { drivers, predictions, badLuckStats, loading };
+        };
+
+        // --- Inline SVGs to avoid layout jumping and preserve purity ---
+        const TrophyIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                <path d="M4 22h16"></path>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+        );
+
+        const FlagIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                <line x1="4" x2="4" y1="22" y2="15"></line>
+            </svg>
+        );
+
+        const TrendingIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        );
+
+        const AlertIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 22 20 2 20 12 2"></polygon>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        );
+
+        const F1CarGraphic = () => (
+            <svg width="250" height="90" viewBox="0 0 250 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Main Body */}
+                <path d="M 60 40 L 180 40 C 200 40, 220 45, 230 45 L 230 45 C 220 45, 200 50, 180 50 L 60 50 Z" fill="var(--crimson)" />
+                {/* Front Wing */}
+                <rect x="230" y="30" width="10" height="30" rx="3" fill="#1a1a1a" />
+                <rect x="220" y="38" width="10" height="14" fill="#000" />
+                {/* Rear Wing */}
+                <rect x="20" y="25" width="20" height="40" rx="2" fill="#1a1a1a" />
+                {/* Cockpit */}
+                <rect x="140" y="40" width="30" height="10" rx="5" fill="#000" />
+                <circle cx="150" cy="45" r="4" fill="#fff" />
+                {/* Sidepods */}
+                <path d="M 100 30 L 140 30 L 160 40 L 160 50 L 140 60 L 100 60 Z" fill="var(--crimson)" />
+                <path d="M 100 30 L 160 40 L 160 50 L 100 60 Z" fill="url(#gloss)" opacity="0.5" />
+                {/* Wheels */}
+                <rect x="190" y="15" width="30" height="15" rx="3" fill="#050505" />
+                <rect x="190" y="60" width="30" height="15" rx="3" fill="#050505" />
+                <rect x="40" y="10" width="40" height="20" rx="4" fill="#050505" />
+                <rect x="40" y="60" width="40" height="20" rx="4" fill="#050505" />
+                <defs>
+                    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#fff" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+        );
+
+        // --- F1 Car Component ---
+        const F1Car = ({ onPassCenter }) => {
+            const [flying, setFlying] = useState(false);
+
+            useEffect(() => {
+                const fly = () => {
+                    setFlying(true);
+
+                    // Roughly halfway trigger shake
+                    setTimeout(() => {
+                        onPassCenter();
+                    }, 750);
+
+                    // Remove class after animation resolves (1.5s total)
+                    setTimeout(() => {
+                        setFlying(false);
+                    }, 1600);
+                };
+
+                const schedule = () => {
+                    const delay = Math.random() * 8000 + 5000;
+                    return setTimeout(() => {
+                        fly();
+                        timeoutId = schedule();
+                    }, delay);
+                };
+
+                let timeoutId = schedule();
+                // Demo first fly-by soon after load
+                setTimeout(fly, 1500);
+
+                return () => clearTimeout(timeoutId);
+            }, [onPassCenter]);
+
+            return (
+                <div className={`f1-car-container ${flying ? 'is-flying' : ''}`}>
+                    <F1CarGraphic />
+                    <div className="motion-blur-trail" />
+                </div>
+            );
+        };
+
+        // --- Main App ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('hall-of-fame');
+            const [shake, setShake] = useState(false);
+            const { drivers, predictions, badLuckStats, loading } = useCSVData();
+
+            const handlePassCenter = useCallback(() => {
+                setShake(true);
+                setTimeout(() => setShake(false), 500);
+            }, []);
+
+            const tabVariants = {
+                initial: { opacity: 0, y: 30, filter: "blur(5px)", scale: 0.98 },
+                animate: { opacity: 1, y: 0, filter: "blur(0px)", scale: 1, transition: { duration: 0.4, ease: "easeOut" } },
+                exit: { opacity: 0, y: -20, filter: "blur(5px)", scale: 0.98, transition: { duration: 0.2, ease: "easeIn" } }
+            };
+
+            // Using React Fragment so the shake transform doesn't interfere with fixed position F1 Car wrapper
+            return (
+                <React.Fragment>
+                    <F1Car onPassCenter={handlePassCenter} />
+
+                    <div className={`app-content ${shake ? 'glitch-shake' : ''}`}>
+                        <div className="container">
+                            <nav className="navbar liquid-glass">
+                                <div className="nav-logo">
+                                    <img src="req_web/icarus_logo.png" alt="icarus F1 Logo" />
+                                    icarus F1
+                                </div>
+                                <div className="nav-links">
+                                    <button
+                                        className={`nav-btn ${activeTab === 'hall-of-fame' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('hall-of-fame')}
+                                    >
+                                        Hall of Fame
+                                    </button>
+                                    <button
+                                        className={`nav-btn ${activeTab === 'predictions' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('predictions')}
+                                    >
+                                        2025 Forecast
+                                    </button>
+                                    <button
+                                        className={`nav-btn ${activeTab === 'bad-luck' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('bad-luck')}
+                                    >
+                                        Bad Luck Index
+                                    </button>
+                                </div>
+                            </nav>
+
+                            <MotionPresence mode="wait">
+                                {loading && (
+                                    <MotionDiv
+                                        key="loading"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                        style={{ textAlign: 'center', padding: '4rem', gridColumn: '1 / -1' }}
+                                    >
+                                        <h3 className="driver-name">Loading Telemetry Data...</h3>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'hall-of-fame' && (
+                                    <MotionDiv
+                                        key="hall-of-fame"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">Hall of Fame <TrophyIcon /></h2>
+                                        <div className="liquid-grid">
+                                            {drivers.map((driver, idx) => (
+                                                <div key={`d-${idx}`} className="liquid-glass interactive-card">
+                                                    <div className="driver-number">{getVal(driver, ['number', 'no'])}</div>
+                                                    <div>
+                                                        <h3 className="driver-name">{getVal(driver, ['name', 'driver'])}</h3>
+                                                        <p className="driver-team">{getVal(driver, ['team', 'constructor'])}</p>
+                                                    </div>
+                                                    <div className="card-footer">
+                                                        <span className="points">{getVal(driver, ['point', 'pts', 'score'])} PTS</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'predictions' && (
+                                    <MotionDiv
+                                        key="predictions"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">2025 Forecast <TrendingIcon /></h2>
+                                        <div className="liquid-grid">
+                                            {predictions.map((pred, idx) => (
+                                                <div key={`p-${idx}`} className="liquid-glass interactive-card">
+                                                    <div>
+                                                        <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '0.2rem', marginTop: 0 }}>
+                                                            {getVal(pred, ['event', 'type', 'category'])}
+                                                        </p>
+                                                        <h3 className="driver-name">{getVal(pred, ['prediction', 'outcome', 'winner', 'driver'])}</h3>
+                                                    </div>
+                                                    <div className="card-footer">
+                                                        <span style={{ color: '#ccc', fontSize: '0.9rem' }}>Probability</span>
+                                                        <span className="probability">{getVal(pred, ['probability', 'prob', 'chance'])}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'bad-luck' && (
+                                    <MotionDiv
+                                        key="bad-luck"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">Bad Luck Index <AlertIcon /></h2>
+                                        <div className="liquid-grid">
+                                            {badLuckStats.map((stat, idx) => (
+                                                <div key={`s-${idx}`} className="liquid-glass interactive-card">
+                                                    <div>
+                                                        <h3 className="driver-name">{getVal(stat, ['driver', 'name'])}</h3>
+                                                        <p className="driver-team">Incidents: {getVal(stat, ['incident', 'dnf', 'crash', 'retire'])}</p>
+                                                    </div>
+                                                    <div className="card-footer">
+                                                        <span style={{ color: '#ccc', fontSize: '0.9rem' }}>Bad Luck Score</span>
+                                                        <span className="probability" style={{ color: '#ff3333' }}>{getVal(stat, ['score', 'index', 'luck'])}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+                            </MotionPresence>
+                        </div>
+                    </div>
+                </React.Fragment>
+            );
+        };
+
+        const root = document.getElementById('root');
+        ReactDOM.createRoot(root).render(<App />);
+    </script>
+</body>
+
+</html>
