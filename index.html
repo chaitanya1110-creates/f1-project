@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>icarus F1</title>
+    <!-- React & ReactDOM (UMD, via CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel standalone for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Framer Motion for Tab Transitions (UMD, via CDN) -->
+    <script src="https://unpkg.com/framer-motion@11.1.7/dist/framer-motion.js"></script>
+    <!-- PapaParse for CSV processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&display=swap');
+
+        :root {
+            --bg-start: #000000;
+            --bg-end: #1a0000;
+            --crimson: #e10600;
+            --crimson-glow: rgba(225, 6, 0, 0.6);
+            --glass-bg: rgba(20, 0, 0, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Titillium Web', sans-serif;
+            background: linear-gradient(135deg, #000000 40%, #590000 100%);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Glitch Screen Shake effect */
+        .glitch-shake {
+            animation: glitch 0.5s cubic-bezier(.25, .46, .45, .94) both;
+        }
+
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+                filter: blur(0);
+            }
+
+            20% {
+                transform: translate(-8px, 4px) skew(-2deg);
+                filter: blur(3px) drop-shadow(4px 0 0 rgba(213, 0, 0, 0.5));
+            }
+
+            40% {
+                transform: translate(8px, -4px) skew(2deg);
+                filter: blur(0);
+            }
+
+            60% {
+                transform: translate(-8px, 2px);
+                filter: blur(2px) drop-shadow(-4px 0 0 rgba(0, 255, 255, 0.5));
+            }
+
+            80% {
+                transform: translate(4px, -2px);
+                filter: blur(0);
+            }
+
+            100% {
+                transform: translate(0);
+                filter: blur(0);
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* --- Modal & Rank Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            z-index: 1000;
+            display: flex;
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 600px; width: 90%;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute; top: 1.5rem; right: 1.5rem;
+            background: rgba(255,255,255,0.1); border: none; color: white;
+            width: 35px; height: 35px; border-radius: 50%;
+            cursor: pointer; font-weight: bold; font-size: 1.2rem;
+            transition: background 0.3s;
+        }
+        .modal-close:hover { background: var(--crimson); }
+        .standing-rank {
+            position: absolute; top: -15px; left: -15px;
+            font-size: 1.5rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--crimson), #800000);
+            color: white; width: 50px; height: 50px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px; transform: rotate(-10deg);
+            box-shadow: 0 5px 15px rgba(213,0,0,0.5);
+            z-index: 30; border: 2px solid rgba(255,255,255,0.2);
+        }
+        /* Make driver name clickable */
+        .clickable-name {
+            cursor: pointer;
+            text-decoration: underline transparent;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+        .clickable-name:hover {
+            color: #ffcccc;
+            text-shadow: 0 0 10px rgba(213,0,0,0.8);
+        }
+
+        /* --- Liquid Glass UI Shared Effect --- */
+        .liquid-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        /* Light Reflection Overlay */
+        .liquid-glass::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.3) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .liquid-glass::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 80%;
+            height: 100%;
+            background: linear-gradient(to right,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.08) 50%,
+                    rgba(255, 255, 255, 0) 100%);
+            transform: skewX(-25deg);
+            transition: left 0.7s ease;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .liquid-glass:hover::after {
+            left: 200%;
+        }
+
+        .liquid-glass>* {
+            position: relative;
+            z-index: 20;
+        }
+
+        /* --- Components --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            margin-bottom: 3rem;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--crimson);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-transform: uppercase;
+        }
+
+        .nav-logo img {
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px var(--crimson-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 20px;
+            font-family: inherit;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            color: #fff;
+            text-shadow: 0 0 10px var(--crimson-glow);
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-transform: uppercase;
+        }
+
+        /* Responsive Liquid Grid */
+        .liquid-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .liquid-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .liquid-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Interactive Cards */
+        .interactive-card {
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                box-shadow 0.4s ease,
+                border-color 0.4s ease;
+        }
+
+        .interactive-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 15px 40px -5px var(--crimson-glow);
+            border-color: rgba(225, 6, 0, 0.4);
+        }
+
+        .driver-number {
+            position: absolute;
+            top: 5px;
+            right: 15px;
+            font-size: 5rem;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: -3px;
+            color: transparent;
+            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.1);
+            z-index: -1;
+            transition: all 0.4s ease;
+            pointer-events: none;
+        }
+
+        .interactive-card:hover .driver-number {
+            -webkit-text-stroke: 1px rgba(225, 6, 0, 0.7);
+            transform: scale(1.1) translateX(-5px);
+        }
+
+        .driver-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .driver-team {
+            font-size: 0.85rem;
+            color: #aaaaaa;
+            margin: 5px 0 0 0;
+        }
+
+        .points,
+        .probability {
+            color: var(--crimson);
+            font-weight: 800;
+        }
+
+        .probability {
+            font-size: 1.2rem;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- F1 Fly-By Animation --- */
+        .f1-car-container {
+            position: fixed;
+            z-index: 1;
+            /* Behind the content container */
+            pointer-events: none;
+            /* Hidden until animation starts */
+            top: 50%;
+            left: -500px;
+            transform: translateY(-50%);
+            will-change: transform;
+        }
+
+        .motion-blur-trail {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 100px;
+            height: 10px;
+            background: transparent;
+            box-shadow:
+                -40px 0 20px 10px rgba(213, 0, 0, 0.8),
+                -80px 0 30px 15px rgba(213, 0, 0, 0.5),
+                -120px 0 50px 20px rgba(213, 0, 0, 0.2);
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        /* PC / Horizontal Animation */
+        @media (min-width: 641px) {
+            .f1-car-container.is-flying {
+                animation: flyRight 1.5s linear forwards;
+            }
+
+            @keyframes flyRight {
+                0% {
+                    transform: translateX(0) translateY(-50%);
+                }
+
+                100% {
+                    transform: translateX(calc(100vw + 600px)) translateY(-50%);
+                }
+            }
+        }
+
+        /* Mobile Optimization */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem 0.5rem;
+                overflow-x: hidden;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+                margin-bottom: 1.5rem;
+                padding-left: 0.5rem;
+            }
+
+            .f1-car-container {
+                left: -200px;
+                top: -200px;
+                transform: rotate(55deg);
+            }
+
+            .f1-car-container.is-flying {
+                animation: flyDiagonal 1.5s linear forwards;
+            }
+
+            @keyframes flyDiagonal {
+                0% {
+                    transform: translate(0, 0) rotate(55deg);
+                }
+
+                100% {
+                    transform: translate(calc(100vw + 400px), calc(100vh + 400px)) rotate(55deg);
+                }
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1.25rem 1rem;
+                border-radius: 20px;
+                margin-bottom: 2rem;
+                text-align: center;
+            }
+
+            .nav-logo {
+                font-size: 1.25rem;
+            }
+
+            .nav-links {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                width: 100%;
+            }
+
+            .nav-btn {
+                font-size: 0.85rem;
+                padding: 0.4rem 0.75rem;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-btn.active {
+                background: rgba(213, 0, 0, 0.2);
+                border-color: var(--crimson);
+            }
+
+            .liquid-grid {
+                gap: 1rem;
+            }
+
+            .interactive-card {
+                padding: 1.25rem;
+                min-height: 140px;
+            }
+
+            .driver-number {
+                font-size: 3rem;
+                right: 10px;
+                top: 0;
+            }
+
+            .probability {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Safe check for Framer Motion incase CDN fails
+        const motion = window.Motion ? window.Motion.motion : null;
+        const AnimatePresence = window.Motion ? window.Motion.AnimatePresence : null;
+
+        const MotionDiv = motion ? motion.div : 'div';
+        const MotionPresence = AnimatePresence ? AnimatePresence : ({ children }) => <>{children}</>;
+
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // --- Utility to safely get property from unknown CSV header ---
+        const getVal = (obj, keysArray) => {
+            if (!obj) return '';
+            const lookupStr = typeof obj === 'object' ? Object.keys(obj) : [];
+            const foundKey = lookupStr.find(k => typeof k === 'string' && keysArray.some(key => k.toLowerCase().includes(key.toLowerCase())));
+            return foundKey !== undefined ? obj[foundKey] : '-';
+        };
+
+        const useCSVData = () => {
+            const [drivers, setDrivers] = useState([]);
+            const [predictions, setPredictions] = useState([]);
+            const [badLuckStats, setBadLuckStats] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                let loaded = 0;
+                const checkDone = () => {
+                    loaded++;
+                    if (loaded >= 3) setLoading(false);
+                };
+
+                const parseCSV = (url, setter) => {
+                    if (window.Papa) {
+                        window.Papa.parse(url, {
+                            download: true,
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: (results) => {
+                                setter(results.data);
+                                checkDone();
+                            },
+                            error: (error) => {
+                                console.error(`Error parsing ${url}:`, error);
+                                // allow progress anyway so app isn't stuck forever
+                                setter([]);
+                                checkDone();
+                            }
+                        });
+                    } else {
+                        console.error('PapaParse is not loaded.');
+                        checkDone();
+                    }
+                };
+
+                parseCSV('./data/top_drivers_all_time.csv', setDrivers);
+                parseCSV('./data/final_predictions.csv', setPredictions);
+                parseCSV('./data/driver_bad_luck_stats.csv', setBadLuckStats);
+            }, []);
+
+            return { drivers, predictions, badLuckStats, loading };
+        };
+
+        // --- Inline SVGs to avoid layout jumping and preserve purity ---
+        const TrophyIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                <path d="M4 22h16"></path>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+        );
+
+        const FlagIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                <line x1="4" x2="4" y1="22" y2="15"></line>
+            </svg>
+        );
+
+        const TrendingIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        );
+
+        const AlertIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 22 20 2 20 12 2"></polygon>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        );
+
+        const F1CarGraphic = () => (
+            <svg width="250" height="90" viewBox="0 0 250 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Main Body */}
+                <path d="M 60 40 L 180 40 C 200 40, 220 45, 230 45 L 230 45 C 220 45, 200 50, 180 50 L 60 50 Z" fill="var(--crimson)" />
+                {/* Front Wing */}
+                <rect x="230" y="30" width="10" height="30" rx="3" fill="#1a1a1a" />
+                <rect x="220" y="38" width="10" height="14" fill="#000" />
+                {/* Rear Wing */}
+                <rect x="20" y="25" width="20" height="40" rx="2" fill="#1a1a1a" />
+                {/* Cockpit */}
+                <rect x="140" y="40" width="30" height="10" rx="5" fill="#000" />
+                <circle cx="150" cy="45" r="4" fill="#fff" />
+                {/* Sidepods */}
+                <path d="M 100 30 L 140 30 L 160 40 L 160 50 L 140 60 L 100 60 Z" fill="var(--crimson)" />
+                <path d="M 100 30 L 160 40 L 160 50 L 100 60 Z" fill="url(#gloss)" opacity="0.5" />
+                {/* Wheels */}
+                <rect x="190" y="15" width="30" height="15" rx="3" fill="#050505" />
+                <rect x="190" y="60" width="30" height="15" rx="3" fill="#050505" />
+                <rect x="40" y="10" width="40" height="20" rx="4" fill="#050505" />
+                <rect x="40" y="60" width="40" height="20" rx="4" fill="#050505" />
+                <defs>
+                    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#fff" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+        );
+
+        // --- F1 Car Component ---
+        const F1Car = ({ activeTab }) => {
+            const [flying, setFlying] = useState(false);
+
+            useEffect(() => {
+                if(!activeTab) return;
+                
+                // Trigger fly-by on tab change
+                setFlying(true);
+                const timer = setTimeout(() => {
+                    setFlying(false);
+                }, 1600);
+
+                return () => clearTimeout(timer);
+            }, [activeTab]);
+
+            return (
+                <div className={`f1-car-container ${flying ? 'is-flying' : ''}`}>
+                    <F1CarGraphic />
+                    <div className="motion-blur-trail" />
+                </div>
+            );
+        };
+
+        // --- Pie Chart Component ---
+        const PredictionsPieChart = ({ data }) => {
+            if (!data || data.length === 0) return null;
+            const total = data.reduce((acc, curr) => acc + parseFloat(getVal(curr, ['predicted_points_potential', 'probability']) || 0), 0);
+            if (total === 0) return null;
+
+            let currentAngle = 0;
+            const colors = ['#d50000', '#ff3333', '#e60000', '#cc0000', '#ff6666', '#b30000', '#ff9999', '#990000', '#ffcccc', '#800000'];
+            
+            const slices = data.map((d, i) => {
+                const val = parseFloat(getVal(d, ['predicted_points_potential', 'probability']) || 0);
+                const percentage = val / total;
+                const angle = percentage * 360;
+                const endAngle = currentAngle + angle;
+                
+                const x1 = 50 + 40 * Math.cos((currentAngle - 90) * Math.PI / 180);
+                const y1 = 50 + 40 * Math.sin((currentAngle - 90) * Math.PI / 180);
+                const x2 = 50 + 40 * Math.cos((endAngle - 90) * Math.PI / 180);
+                const y2 = 50 + 40 * Math.sin((endAngle - 90) * Math.PI / 180);
+                
+                const largeArcFlag = angle > 180 ? 1 : 0;
+                let pathData = '';
+                if(val > 0) {
+                    if (percentage === 1) {
+                        pathData = `M 50 10 A 40 40 0 1 1 49.9 10 Z`;
+                    } else {
+                        pathData = `M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+                    }
+                }
+                
+                const slice = {
+                    path: pathData,
+                    color: colors[i % colors.length],
+                    name: `${getVal(d, ['forename'])} ${getVal(d, ['surname'])}`.trim(),
+                    percentage: (percentage * 100).toFixed(1)
+                };
+                currentAngle = endAngle;
+                return slice;
+            });
+
+            return (
+                <div className="liquid-glass" style={{ display: 'flex', gap: '2rem', alignItems: 'center', marginBottom: '3rem', flexWrap: 'wrap', justifyContent: 'center', padding: '2rem', borderRadius: '16px' }}>
+                    <h3 style={{width: '100%', textAlign: 'left', margin: 0, paddingLeft: '1rem'}}>Win Probability Distribution</h3>
+                    <svg viewBox="0 0 100 100" width="200" height="200" style={{ overflow: 'visible', filter: 'drop-shadow(0 0 15px rgba(213,0,0,0.4))' }}>
+                        {slices.map((slice, i) => slice.path && (
+                            <path key={i} d={slice.path} fill={slice.color} stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+                        ))}
+                    </svg>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '200px', paddingRight: '1rem' }}>
+                        {slices.map((slice, i) => slice.path && (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
+                                <div style={{ width: '12px', height: '12px', backgroundColor: slice.color, borderRadius: '50%', boxShadow: `0 0 8px ${slice.color}` }}></div>
+                                <span style={{ color: '#ccc', flex: 1 }}>{slice.name}</span>
+                                <span style={{ fontWeight: 'bold' }}>{slice.percentage}%</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Driver Details Modal Component ---
+        const DriverModal = ({ driverName, drivers, predictions, badLuckStats, onClose }) => {
+            if(!driverName) return null;
+
+            const nameParts = driverName.split(' ');
+            const fName = nameParts[0] || '';
+            const sName = nameParts.slice(1).join(' ') || '';
+
+            const hallOfFameData = drivers.find(d => {
+                const dName = getVal(d, ['name', 'driver']) || '';
+                return dName.toLowerCase() === driverName.toLowerCase();
+            }) || {};
+
+            const predictionData = predictions.find(p => {
+                const first = getVal(p, ['forename']) || '';
+                const last = getVal(p, ['surname']) || '';
+                const full = `${first} ${last}`.trim();
+                return full.toLowerCase().includes(sName.toLowerCase()) || 
+                       full.toLowerCase() === driverName.toLowerCase() ||
+                       (getVal(p, ['driver', 'name']) || '').toLowerCase() === driverName.toLowerCase();
+            }) || {};
+
+            const badLuckData = badLuckStats.find(b => {
+                const dName = getVal(b, ['driver', 'name']) || '';
+                return dName.toLowerCase().includes(sName.toLowerCase()) || dName.toLowerCase() === driverName.toLowerCase();
+            }) || {};
+
+            const pts = getVal(hallOfFameData, ['point', 'pts', 'score', 'total']) || '0';
+            const num = getVal(hallOfFameData, ['number', 'no']) || '';
+
+            let predProb = getVal(predictionData, ['predicted_points_potential', 'probability', 'prob', 'chance']);
+            predProb = predProb ? `${predProb}%` : '0%';
+
+            const dnfs = getVal(badLuckData, ['count', 'incident', 'dnf', 'crash', 'retire']) || '0';
+            const team = getVal(hallOfFameData, ['team', 'constructor']) || '';
+
+            return (
+                <MotionDiv 
+                    className="modal-overlay" 
+                    onClick={onClose}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                >
+                    <MotionDiv 
+                        className="modal-content liquid-glass" 
+                        onClick={e => e.stopPropagation()}
+                        initial={{ scale: 0.8, y: 50, opacity: 0 }}
+                        animate={{ scale: 1, y: 0, opacity: 1 }}
+                        exit={{ scale: 0.8, y: 50, opacity: 0 }}
+                    >
+                        <button className="modal-close" onClick={onClose}>X</button>
+                        <div style={{ position: 'absolute', top: '10px', right: '30px', fontSize: '10rem', color: 'transparent', WebkitTextStroke: '2px rgba(255,255,255,0.03)', zIndex: '-1', pointerEvents:'none' }}>
+                            {num}
+                        </div>
+                        <h2 style={{ fontSize: '3rem', marginTop: 0, marginBottom: '0.5rem', color: 'var(--crimson)', lineHeight: '1.1' }}>{driverName}</h2>
+                        {team && <p style={{ color: '#aaa', marginTop: 0, marginBottom: '2.5rem', fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '2px' }}>{team}</p>}
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                            <div style={{ background: 'rgba(0,0,0,0.7)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '0.5rem' }}>Total Points</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>{pts}</div>
+                            </div>
+                            <div style={{ background: 'rgba(0,0,0,0.7)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '0.5rem' }}>Win Probability</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--crimson)' }}>{predProb}</div>
+                            </div>
+                            <div style={{ background: 'rgba(0,0,0,0.7)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', gridColumn: 'span 2' }}>
+                                <div style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '0.5rem' }}>Total DNFs / Incidents</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#ff3333' }}>{dnfs}</div>
+                            </div>
+                        </div>
+                    </MotionDiv>
+                </MotionDiv>
+            );
+        };
+
+        // --- Main App ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('hall-of-fame');
+            const [selectedDriver, setSelectedDriver] = useState(null);
+            const { drivers, predictions, badLuckStats, loading } = useCSVData();
+
+            const tabVariants = {
+                initial: { opacity: 0, y: 30, filter: "blur(5px)", scale: 0.98 },
+                animate: { opacity: 1, y: 0, filter: "blur(0px)", scale: 1, transition: { duration: 0.4, ease: "easeOut" } },
+                exit: { opacity: 0, y: -20, filter: "blur(5px)", scale: 0.98, transition: { duration: 0.2, ease: "easeIn" } }
+            };
+
+            // Using React Fragment so the animation doesn't interfere with fixed position F1 Car wrapper
+            return (
+                <React.Fragment>
+                    <F1Car activeTab={activeTab} />
+
+                    <div className="app-content">
+                        <div className="container">
+                            <nav className="navbar liquid-glass">
+                                <div className="nav-logo">
+                                    icarus F1
+                                </div>
+                                <div className="nav-links">
+                                    <button
+                                        className={`nav-btn ${activeTab === 'hall-of-fame' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('hall-of-fame')}
+                                    >
+                                        Hall of Fame
+                                    </button>
+                                    <button
+                                        className={`nav-btn ${activeTab === 'predictions' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('predictions')}
+                                    >
+                                        2025 Forecast
+                                    </button>
+                                    <button
+                                        className={`nav-btn ${activeTab === 'bad-luck' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('bad-luck')}
+                                    >
+                                        Bad Luck Index
+                                    </button>
+                                </div>
+                            </nav>
+
+                            <MotionPresence mode="wait">
+                                {loading && (
+                                    <MotionDiv
+                                        key="loading"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                        style={{ textAlign: 'center', padding: '4rem', gridColumn: '1 / -1' }}
+                                    >
+                                        <h3 className="driver-name">Loading Telemetry Data...</h3>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'hall-of-fame' && (
+                                    <MotionDiv
+                                        key="hall-of-fame"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">Hall of Fame <TrophyIcon /></h2>
+                                        <div className="liquid-grid">
+                                            {drivers.slice(0, 10).map((driver, idx) => (
+                                                <div key={`d-${idx}`} className="liquid-glass interactive-card">
+                                                    <div className="standing-rank">{idx + 1}</div>
+                                                    <div className="driver-number">{getVal(driver, ['number', 'no'])}</div>
+                                                    <div>
+                                                        <h3 className="driver-name clickable-name" onClick={() => setSelectedDriver(getVal(driver, ['name', 'driver']))}>
+                                                            {getVal(driver, ['name', 'driver'])}
+                                                        </h3>
+                                                        <p className="driver-team">{getVal(driver, ['team', 'constructor'])}</p>
+                                                    </div>
+                                                    <div className="card-footer">
+                                                        <span className="points">{getVal(driver, ['point', 'pts', 'score', 'total'])} PTS</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'predictions' && (
+                                    <MotionDiv
+                                        key="predictions"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">2025 Forecast <TrendingIcon /></h2>
+                                        <PredictionsPieChart data={predictions} />
+                                        <div className="liquid-grid">
+                                            {predictions.map((pred, idx) => {
+                                                const fullName = `${getVal(pred, ['forename'])} ${getVal(pred, ['surname'])}`.trim();
+                                                return (
+                                                    <div key={`p-${idx}`} className="liquid-glass interactive-card">
+                                                        <div>
+                                                            <h3 className="driver-name clickable-name" onClick={() => setSelectedDriver(fullName)}>
+                                                                {fullName}
+                                                            </h3>
+                                                        </div>
+                                                        <div className="card-footer" style={{marginTop: '1.5rem'}}>
+                                                            <span style={{ color: '#ccc', fontSize: '0.9rem' }}>Probability</span>
+                                                            <span className="probability">{getVal(pred, ['predicted_points_potential', 'probability', 'prob', 'chance'])}%</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+
+                                {!loading && activeTab === 'bad-luck' && (
+                                    <MotionDiv
+                                        key="bad-luck"
+                                        variants={motion ? tabVariants : {}}
+                                        initial="initial"
+                                        animate="animate"
+                                        exit="exit"
+                                    >
+                                        <h2 className="section-title">Bad Luck Index <AlertIcon /></h2>
+                                        <div className="liquid-grid">
+                                            {badLuckStats.slice(0, 10).map((stat, idx) => {
+                                                const driverName = getVal(stat, ['driver', 'name']);
+                                                return (
+                                                    <div key={`s-${idx}`} className="liquid-glass interactive-card">
+                                                        <div>
+                                                            <h3 className="driver-name clickable-name" onClick={() => setSelectedDriver(driverName)}>{driverName}</h3>
+                                                        </div>
+                                                        <div className="card-footer" style={{marginTop: '1.5rem'}}>
+                                                            <span style={{ color: '#ccc', fontSize: '0.9rem' }}>Total DNFs</span>
+                                                            <span className="probability" style={{ color: '#ff3333' }}>{getVal(stat, ['count', 'incident', 'dnf', 'crash', 'retire'])}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </MotionDiv>
+                                )}
+                            </MotionPresence>
+
+                            <MotionPresence>
+                                {selectedDriver && (
+                                    <DriverModal 
+                                        driverName={selectedDriver}
+                                        drivers={drivers}
+                                        predictions={predictions}
+                                        badLuckStats={badLuckStats}
+                                        onClose={() => setSelectedDriver(null)}
+                                    />
+                                )}
+                            </MotionPresence>
+                        </div>
+                    </div>
+                </React.Fragment>
+            );
+        };
+
+        const root = document.getElementById('root');
+        ReactDOM.createRoot(root).render(<App />);
+    </script>
+</body>
+
+</html>
